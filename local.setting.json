@@ -6,11 +6,11 @@
       "db_username": "CC_A_2",
       "db_password": "HzbbpLgNtn9jYYVqtzimH1tdtcr0U0SY3v-rPy-slbQ",
       "db_host": "iestlab0001.westeurope.cloudapp.azure.com",
-      "db_name": "CC_A_2",
-      "FUNCTIONS_EXTENSION_VERSION": "~4",
-      "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "DefaultEndpointsProtocol=https;EndpointSuffix=core.windows.net;AccountName=expensemanagement2447685;AccountKey=IO1chPeuvhcpfPpBWnB7NoSUt4AvQEVABCJe3kC3CX/PR/MpfB8gTbq1t1kEyRhFlmQ/Vj8QB0/s+AStiBoaxw==",
-      "WEBSITE_CONTENTSHARE": "http2mysqlfunc1de5dcb0c4008",
-      "AzureWebJobsDashboard": "DefaultEndpointsProtocol=https;EndpointSuffix=core.windows.net;AccountName=expensemanagement2447685;AccountKey=IO1chPeuvhcpfPpBWnB7NoSUt4AvQEVABCJe3kC3CX/PR/MpfB8gTbq1t1kEyRhFlmQ/Vj8QB0/s+AStiBoaxw=="
-    },
-    "ConnectionStrings": {}
+      "db_name": "CC_A_2"
+    }
   }
+
+  az functionapp config set \
+  --name ExpenseManagementFuncApp24476 \
+  --resource-group CC_A_2 \
+  --linux-fx-version "PYTHON|3.11"
