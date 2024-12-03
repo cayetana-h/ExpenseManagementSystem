@@ -368,6 +368,7 @@
 
         $('#addReceiptForm').on('submit', function (e) {
             e.preventDefault();
+
             const fileInput = $('#receiptFile')[0].files[0];
             const expenseId = $('#receiptExpenseId').val();
 
@@ -376,32 +377,26 @@
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function () {
-                const base64File = reader.result.split(',')[1];
-                const payload = {
-                    expenseId: expenseId,
-                    fileName: fileInput.name,
-                    fileContent: base64File,
-                };
+            const formData = new FormData();
+            formData.append('expenseId', expenseId);
+            formData.append('file', fileInput);
 
-                $.ajax({
-                    url: '/add_receipt',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(payload),
-                    success: function (response) {
-                        alert(response.message);
-                        $('#addReceiptModal').modal('hide');
-                        location.reload();
-                    },
-                    error: function (xhr) {
-                        alert('Error: ' + (xhr.responseJSON?.error || xhr.statusText));
-                    }
-                });
-            };
-
-            reader.readAsDataURL(fileInput);
+            $.ajax({
+                url: '/add_receipt',
+                method: 'POST',
+                data: formData,
+                processData: false,  // Important for file upload
+                contentType: false,  // Important for file upload
+                success: function (response) {
+                    alert(response.message || 'Receipt uploaded successfully.');
+                    $('#addReceiptModal').modal('hide');
+                    updateExpensesTable();
+                },
+                error: function (xhr) {
+                    alert('Error: ' + (xhr.responseJSON?.error || xhr.statusText));
+                    console.error('Error response:', xhr.responseJSON);
+                }
+            });
         });
 
         // Handle "Delete Expense"

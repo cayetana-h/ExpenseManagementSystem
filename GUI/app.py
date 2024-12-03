@@ -3,6 +3,7 @@ import requests
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 import os
+from werkzeug.utils import secure_filename
 import logging
 import base64
 
@@ -25,7 +26,9 @@ FUNCTION_KEYS = {
     'EditExpense': os.getenv('EDIT_EXPENSE_KEY'),
     'DeleteExpense': os.getenv('DELETE_EXPENSE_KEY'),
     'AddUser': os.getenv('ADD_USER_KEY'),
-    'GetUser': os.getenv('GET_USER_KEY')
+    'GetUser': os.getenv('GET_USER_KEY'),
+    'AddReceipt':os.getenv('ADD_RECEIPT_KEY'),
+    'DeleteReceipt':os.getenv('DELETE_RECEIPT_KEY')
 }
 
 def azure_function_request(function_name, method='GET', params=None, json=None):
@@ -268,31 +271,51 @@ def delete_expense():
         return jsonify({'error': 'Failed to delete expense'}), 500
     
 
+
 @app.route('/add_receipt', methods=['POST'])
 def add_receipt():
     try:
-        logging.info(f"Form data: {request.form}")
-        logging.info(f"Files: {request.files}")
-
         expense_id = request.form.get('expenseId')
         file = request.files.get('file')
 
+        # Validate required fields
         if not expense_id or not file:
-            return jsonify({"error": "Expense ID and file are required."}), 400
+            return jsonify({'error': 'Expense ID and File are required.'}), 400
 
-        # Call Azure Function to handle receipt upload
-        files = {'file': (file.filename, file.stream, file.content_type)}
-        data = {'expenseId': expense_id}
+        # Secure the filename
+        filename = secure_filename(file.filename)
+        
+        # Convert file to base64
+        file_content = base64.b64encode(file.read()).decode('utf-8')
 
-        response = azure_function_request('AddReceipt', method='POST', files=files, data=data)
+        # Prepare data for Azure Function
+        data = {
+            'expenseId': expense_id,
+            'fileName': filename,
+            'fileContent': file_content
+        }
 
-        if 'error' in response:
-            return jsonify({"error": response['error']}), 500
+        # Log the data being sent (be careful with sensitive information)
+        app.logger.info(f"Sending data to AddReceipt: {data}")
 
-        return jsonify({"message": "Receipt uploaded successfully!"})
+        # Call Azure Function to add receipt
+        try:
+            result = azure_function_request('AddReceipt', method='POST', json=data)
+            app.logger.info(f"AddReceipt function response: {result}")
+
+            if result:
+                return jsonify({'message': 'Receipt uploaded successfully'}), 200
+            else:
+                return jsonify({'error': 'Failed to upload receipt to Azure Function'}), 500
+
+        except Exception as func_error:
+            app.logger.error(f"Azure Function call error: {func_error}")
+            return jsonify({'error': f'Azure Function call failed: {str(func_error)}'}), 500
+
     except Exception as e:
-        logging.error(f"Error adding receipt: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        app.logger.error(f"Error in /add_receipt: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+    
 
 if __name__ == '__main__':
     app.run(debug=True)
