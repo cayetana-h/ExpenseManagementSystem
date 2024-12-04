@@ -30,6 +30,17 @@ FUNCTION_KEYS = {
     'AddReceipt':os.getenv('ADD_RECEIPT_KEY'),
     'ViewReceipt':os.getenv('VIEW_RECEIPT_KEY')
 }
+def getCategoryName(category_id):
+    """
+    Maps categoryId to category names.
+    """
+    category_map = {
+        1: 'Food',
+        2: 'Transport',
+        3: 'Entertainment',
+        4: 'Other'
+    }
+    return category_map.get(category_id, 'Unknown')
 
 def azure_function_request(function_name, method='GET', params=None, json=None):
     url = f"{AZURE_FUNCTIONS_BASE_URL}/{function_name}"
@@ -332,6 +343,7 @@ def view_receipt():
         # Handle errors from the Azure Function
         error_message = response.get("error", "Failed to view receipt.") if response else "no receipt added"
         return jsonify({"error": error_message}), 500
+    
 
 if __name__ == '__main__':
     app.run(debug=True)
