@@ -353,6 +353,27 @@
                 }
             });
         });
+        // Handle "Set Budget" form submission
+        $('#setBudgetForm').on('submit', function (e) {
+            e.preventDefault(); // Prevent the default form submission behavior
+
+            const formData = $(this).serialize();
+
+            $.ajax({
+                url: '/set_budget',
+                method: 'POST',
+                data: formData,
+                success: function (response) {
+                    alert(response.message); // Display success message
+                    $('#setBudgetModal').modal('hide'); // Hide the modal
+                    updateBudgetDisplay(); // Refresh the budget display dynamically
+                },
+                error: function (xhr) {
+                    const error = xhr.responseJSON?.error || xhr.statusText;
+                    alert(`Error setting budget: ${error}`); // Display error message
+                }
+            });
+        });
 
         // Handle "Add Receipt" functionality
         $('#expensesTable').on('click', '.add-receipt', function () {
@@ -442,6 +463,38 @@
                     alert('Error: ' + (xhr.responseJSON?.error || xhr.statusText));
                 }
             });
+        });
+
+        $('#deleteBudgetForm').on('submit', function (e) {
+        e.preventDefault(); // Prevent the default form submission behavior
+
+        const formData = $(this).serialize(); // Serialize the form data
+
+            $.ajax({
+                url: '/delete_budget', // The backend endpoint
+                method: 'POST',
+                data: formData,
+                success: function (response) {
+                    alert(response.message); // Show a success message
+                    $('#deleteBudgetModal').modal('hide'); // Hide the modal
+                    updateBudgetDisplay(); // Refresh the budget display
+                },
+                error: function (xhr) {
+                    const error = xhr.responseJSON?.error || xhr.statusText;
+                    alert(`Error deleting budget: ${error}`); // Show an error message
+                }
+            });
+        });
+
+        // Dynamically set the category name and ID in the modal
+        $('#deleteBudgetModal').on('show.bs.modal', function (event) {
+            const button = $(event.relatedTarget); // Button that triggered the modal
+            const categoryName = button.data('category-name'); // Extract category name
+            const categoryId = button.data('category'); // Extract category ID
+
+            const modal = $(this);
+            modal.find('#deleteBudgetCategory').text(categoryName); // Update modal title
+            modal.find('#categoryId').val(categoryId); // Set hidden categoryId field
         });
 
         // Handle budget-related modals
