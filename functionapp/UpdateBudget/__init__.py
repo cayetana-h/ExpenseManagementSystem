@@ -19,16 +19,51 @@ headers = {
     "Access-Control-Allow-Origin": "*"
 }
 
-def update_budget(user_id, category_id, budget_limit, start_date, end_date):
+def update_budget(username, category_id, budget_limit, start_date, end_date):
     '''
-    Update an existing budget record in the Budgets table for a unique user/category combination.
+    Update an existing budget record in the Budgets table for a unique username/category combination.
     '''
     try:
+        # Validate and convert budget_limit
+        try:
+            budget_limit = float(budget_limit)  # Ensure it's a number
+        except ValueError:
+            error_message = {
+                "error": "Invalid budget limit.",
+                "parameters": {"username": username, "categoryId": category_id, "budgetLimit": budget_limit},
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }
+            send_to_dead_letter_queue(error_message)
+            return False, "invalid_limit"
+
+        if budget_limit < 0:
+            error_message = {
+                "error": "Budget limit cannot be negative.",
+                "parameters": {"username": username, "categoryId": category_id, "budgetLimit": budget_limit},
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }
+            send_to_dead_letter_queue(error_message)
+            return False, "negative_limit"
+
         # Establish the database connection
         connection = pymysql.connect(**db_config)
         cursor = connection.cursor()
 
-        # Check if a budget already exists for this user and category combination
+        # Get userId from username
+        cursor.execute("SELECT id FROM Users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        if not user:
+            error_message = {
+                "error": f"No user found with username '{username}'",
+                "parameters": {"username": username, "categoryId": category_id},
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }
+            send_to_dead_letter_queue(error_message)
+            return False, "user_not_found"
+
+        user_id = user[0]
+
+        # Check if a budget exists for this user and category combination
         cursor.execute("""
             SELECT id FROM Budgets
             WHERE userId = %s AND categoryId = %s
@@ -45,21 +80,20 @@ def update_budget(user_id, category_id, budget_limit, start_date, end_date):
             action = "updated"
         else:
             # If no budget exists, log the error and send to DLQ
-            error_message = f"No budget found for User ID {user_id} and Category ID {category_id}"
-            logging.error(error_message)
-            send_to_dead_letter_queue({
-                "error": error_message,
-                "parameters": {"userId": user_id, "categoryId": category_id},
+            error_message = {
+                "error": f"No budget found for User '{username}' and Category ID {category_id}",
+                "parameters": {"username": username, "categoryId": category_id},
                 "timestamp": datetime.datetime.utcnow().isoformat()
-            })
-            return False, "not_found"
+            }
+            send_to_dead_letter_queue(error_message)
+            return False, "budget_not_found"
 
         # Commit the transaction
         connection.commit()
 
         # Check if the row was affected
         if cursor.rowcount > 0:
-            logging.info(f"Budget {action} successfully: User ID {user_id}, Category ID {category_id}")
+            logging.info(f"Budget {action} successfully: Username '{username}', Category ID {category_id}")
             return True, action
         else:
             logging.warning("No rows were affected in the database.")
@@ -67,12 +101,12 @@ def update_budget(user_id, category_id, budget_limit, start_date, end_date):
 
     except pymysql.MySQLError as db_error:
         # Log and handle MySQL-specific errors
-        logging.error(f"MySQL error: {str(db_error)}")
-        send_to_dead_letter_queue({
+        error_message = {
             "error": str(db_error),
-            "parameters": {"userId": user_id, "categoryId": category_id},
+            "parameters": {"username": username, "categoryId": category_id},
             "timestamp": datetime.datetime.utcnow().isoformat()
-        })
+        }
+        send_to_dead_letter_queue(error_message)
         raise db_error
 
     finally:
@@ -93,22 +127,57 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         req_body = req.get_json()
 
         # Extract parameters from the request
-        user_id = req_body.get('userId')
+        username = req_body.get('username')
         category_id = req_body.get('categoryId')
         budget_limit = req_body.get('budgetLimit')
         start_date = req_body.get('startDate')
         end_date = req_body.get('endDate')
 
         # Validate input data
-        if not all([user_id, category_id, budget_limit, start_date, end_date]):
+        if not all([username, category_id, budget_limit, start_date, end_date]):
+            error_message = {
+                "error": "Missing required fields: username, categoryId, budgetLimit, startDate, endDate",
+                "parameters": req_body,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }
+            send_to_dead_letter_queue(error_message)
             return func.HttpResponse(
-                json.dumps({"error": "Missing required fields: userId, categoryId, budgetLimit, startDate, endDate"}),
+                json.dumps({"error": "Missing required fields: username, categoryId, budgetLimit, startDate, endDate"}),
+                status_code=400,
+                headers=headers
+            )
+
+        # Validate that the budget limit is not negative
+        try:
+            budget_limit = float(budget_limit)  # Ensure it's a valid number
+        except ValueError:
+            error_message = {
+                "error": "Invalid budget limit.",
+                "parameters": req_body,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }
+            send_to_dead_letter_queue(error_message)
+            return func.HttpResponse(
+                json.dumps({"error": "Invalid budget limit."}),
+                status_code=400,
+                headers=headers
+            )
+
+        if budget_limit < 0:
+            error_message = {
+                "error": "Budget limit cannot be negative.",
+                "parameters": req_body,
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            }
+            send_to_dead_letter_queue(error_message)
+            return func.HttpResponse(
+                json.dumps({"error": "Budget limit cannot be negative."}),
                 status_code=400,
                 headers=headers
             )
 
         # Call the function to update the budget
-        success, action = update_budget(user_id, category_id, budget_limit, start_date, end_date)
+        success, action = update_budget(username, category_id, budget_limit, start_date, end_date)
         if success:
             return func.HttpResponse(
                 json.dumps({"message": f"Budget {action} successfully."}),
@@ -116,10 +185,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 headers=headers
             )
         else:
-            if action == "not_found":
+            if action == "user_not_found":
                 return func.HttpResponse(
-                    json.dumps({"error": f"No budget found for User ID {user_id} and Category ID {category_id}"}),
+                    json.dumps({"error": f"No user found with username '{username}'"}),
                     status_code=404,  # Not found HTTP status code
+                    headers=headers
+                )
+            elif action == "budget_not_found":
+                return func.HttpResponse(
+                    json.dumps({"error": f"No budget found for Username '{username}' and Category ID {category_id}"}),
+                    status_code=404,  # Not found HTTP status code
+                    headers=headers
+                )
+            elif action == "negative_limit":
+                return func.HttpResponse(
+                    json.dumps({"error": "Budget limit cannot be negative."}),
+                    status_code=400,
                     headers=headers
                 )
             return func.HttpResponse(
@@ -130,11 +211,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     except Exception as e:
         # Log unexpected errors and send to DLQ
-        send_to_dead_letter_queue({
+        error_message = {
             "error": str(e),
-            "parameters": {"userId": user_id, "categoryId": category_id},
+            "parameters": req_body if 'req_body' in locals() else {},
             "timestamp": datetime.datetime.utcnow().isoformat()
-        })
+        }
+        send_to_dead_letter_queue(error_message)
         return func.HttpResponse(
             json.dumps({"error": str(e)}),
             status_code=500,

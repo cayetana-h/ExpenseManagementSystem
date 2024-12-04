@@ -3,7 +3,10 @@ import azure.functions as func
 import pymysql
 import json
 import datetime
-from shared.dead_letter_queue import send_to_dead_letter_queue  # Import the DLQ helper
+from shared.dead_letter_queue import send_to_dead_letter_queue
+from azure.storage.blob import BlobServiceClient  # Added for Blob Storage
+import os  # Added for getting connection string
+import urllib.parse  # Added to parse blob URL
 
 # Database configuration
 db_config = {
@@ -19,14 +22,58 @@ headers = {
     "Access-Control-Allow-Origin": "*"
 }
 
-def delete_expense(expense_id):
+def delete_expense_and_receipt(expense_id):
     '''
-    Delete an expense record from the Expenses table.
+    Delete an expense record and its associated receipt from the database and blob storage.
     '''
     try:
         # Establish the database connection
         connection = pymysql.connect(**db_config)
-        cursor = connection.cursor()
+        cursor = connection.cursor(pymysql.cursors.DictCursor)
+
+        # First, find and delete the associated receipt(s)
+        cursor.execute("""
+            SELECT fileUrl 
+            FROM Receipts 
+            WHERE expenseId = %s
+        """, (expense_id,))
+        
+        receipts = cursor.fetchall()
+        
+        # Delete receipts from Blob Storage
+        if receipts:
+            try:
+                # Get connection string from environment variable
+                connect_str = os.environ.get('AzureWebJobsStorage')
+                blob_service_client = BlobServiceClient.from_connection_string(connect_str)
+                
+                # Delete each receipt blob
+                for receipt in receipts:
+                    receipt_url = receipt['fileUrl']
+                    
+                    # Parse the URL to extract container and blob name
+                    parsed_url = urllib.parse.urlparse(receipt_url)
+                    path_parts = parsed_url.path.strip('/').split('/')
+                    
+                    # Assumes URL format: https://<account>.blob.core.windows.net/<container>/<blobname>
+                    container_name = path_parts[0]
+                    blob_name = '/'.join(path_parts[1:])
+                    
+                    # Get blob client and delete
+                    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+                    blob_client.delete_blob()
+                    logging.info(f"Receipts blob deleted: {receipt_url}")
+                
+                # Delete receipt records from Receipt table
+                cursor.execute("""
+                    DELETE FROM Receipts 
+                    WHERE expenseId = %s
+                """, (expense_id,))
+                logging.info(f"Receipts records deleted for expense ID: {expense_id}")
+            
+            except Exception as blob_error:
+                logging.error(f"Error deleting receipt blobs: {str(blob_error)}")
+                # Continue with expense deletion even if blob deletion fails
 
         # Delete the expense from the Expenses table
         cursor.execute("""
@@ -57,6 +104,7 @@ def delete_expense(expense_id):
         if 'connection' in locals() and connection:
             connection.close()
 
+# The rest of the function remains the same as in the previous implementation
 def main(req: func.HttpRequest) -> func.HttpResponse:
     '''
     This is the entry point for HTTP calls to our Delete Expense function.
@@ -130,11 +178,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             headers=headers
         )
 
-    # Call the function to delete the expense from the database
+    # Call the function to delete the expense and receipt from the database and blob storage
     try:
-        if delete_expense(expense_id):
+        if delete_expense_and_receipt(expense_id):
             return func.HttpResponse(
-                json.dumps({"message": "Expense deleted successfully"}),
+                json.dumps({"message": "Expense and receipt deleted successfully"}),
                 status_code=200,
                 headers=headers
             )

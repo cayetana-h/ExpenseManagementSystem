@@ -24,6 +24,25 @@ def edit_expense(expense_id, user_id=None, amount=None, date=None, description=N
     Update an expense record in the Expenses table.
     '''
     try:
+        # Check if the amount is negative and handle it
+        if amount is not None and amount < 0:
+            error_message = f"Invalid amount: {amount}. Amount cannot be negative."
+            logging.error(error_message)
+            send_to_dead_letter_queue({
+                "error": error_message,
+                "expenseId": expense_id,
+                "parameters": {
+                    "userId": user_id,
+                    "amount": amount,
+                    "date": date,
+                    "description": description,
+                    "categoryId": category_id,
+                    "status": status
+                },
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
+            return False, "Invalid amount. Amount cannot be negative."
+
         connection = pymysql.connect(**db_config)
         cursor = connection.cursor()
 

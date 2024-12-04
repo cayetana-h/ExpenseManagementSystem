@@ -3,7 +3,7 @@ import azure.functions as func
 import pymysql
 import json
 import decimal
-import datetime  # Ensure datetime is imported
+import datetime
 from shared.dead_letter_queue import send_to_dead_letter_queue  # DLQ helper import
 
 # Database configuration
@@ -20,33 +20,51 @@ headers = {
     "Access-Control-Allow-Origin": "*"
 }
 
-def view_budget(user_id, category_id):
+def view_budget(username, category_id=None):
     '''
-    Retrieve the budget record for a specific user and category.
+    Retrieve the budget record for a specific user (by username) and optionally by category.
     '''
     try:
         # Establish the database connection
         connection = pymysql.connect(**db_config)
         cursor = connection.cursor(pymysql.cursors.DictCursor)
 
+        # Get userId from username
+        cursor.execute("SELECT id FROM Users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        if not user:
+            error_message = f"No user found with username '{username}'"
+            logging.error(error_message)
+            send_to_dead_letter_queue({
+                "error": error_message,
+                "parameters": {"username": username, "categoryId": category_id},
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
+            return None, "user_not_found"
+
+        user_id = user["id"]
+
         # Query to fetch the budget
-        query = """
-        SELECT * FROM Budgets WHERE userId = %s AND categoryId = %s
-        """
-        params = (user_id, category_id)
+        query = "SELECT * FROM Budgets WHERE userId = %s"
+        params = [user_id]
+
+        # Add optional category filter
+        if category_id:
+            query += " AND categoryId = %s"
+            params.append(category_id)
 
         # Execute the query
-        cursor.execute(query, params)
-        result = cursor.fetchone()
+        cursor.execute(query, tuple(params))
+        result = cursor.fetchall()  # Fetch all budgets matching the filters
 
-        return result
+        return result, None
 
     except pymysql.MySQLError as db_error:
         # Log the error and send to the Dead Letter Queue
         logging.error(f"MySQL error: {str(db_error)}")
         send_to_dead_letter_queue({
             "error": str(db_error),
-            "parameters": {"userId": user_id, "categoryId": category_id},
+            "parameters": {"username": username, "categoryId": category_id},
             "timestamp": datetime.datetime.utcnow().isoformat()
         })
         raise db_error
@@ -74,17 +92,17 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     '''
     logging.info('Python HTTP trigger function processed a request.')
 
-    # Extract userId and categoryId from the query parameters
-    user_id = req.params.get('userId')
+    # Extract username and optional categoryId from the query parameters
+    username = req.params.get('username')
     category_id = req.params.get('categoryId')
 
     # Validate the input
-    if not user_id or not category_id:
-        error_message = "Missing required fields: userId and categoryId"
+    if not username:
+        error_message = "Missing required field: username"
         logging.error(error_message)
         send_to_dead_letter_queue({
             "error": error_message,
-            "parameters": {"userId": user_id, "categoryId": category_id},
+            "parameters": {"username": username, "categoryId": category_id},
             "timestamp": datetime.datetime.utcnow().isoformat()
         })
         return func.HttpResponse(
@@ -95,19 +113,26 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         # Call the function to retrieve the budget
-        budget = view_budget(user_id, category_id)
+        budgets, error = view_budget(username, category_id)
 
-        if budget:
+        if error == "user_not_found":
+            return func.HttpResponse(
+                json.dumps({"error": f"No user found with username '{username}'"}),
+                status_code=404,
+                headers=headers
+            )
+
+        if budgets:
             # Serialize the response using the custom serializer
             return func.HttpResponse(
-                json.dumps({"budget": budget}, default=custom_json_serializer),
+                json.dumps({"budgets": budgets}, default=custom_json_serializer),
                 status_code=200,
                 headers=headers
             )
         else:
-            # Return a 404 if no budget is found
+            # Return a 404 if no budgets are found
             return func.HttpResponse(
-                json.dumps({"message": "No budget found for the specified user and category."}),
+                json.dumps({"message": "No budgets found for the specified username and category." if category_id else "No budgets found for the specified username."}),
                 status_code=404,
                 headers=headers
             )
@@ -116,7 +141,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(f"Unexpected error: {str(e)}")
         send_to_dead_letter_queue({
             "error": str(e),
-            "parameters": {"userId": user_id, "categoryId": category_id},
+            "parameters": {"username": username, "categoryId": category_id},
             "timestamp": datetime.datetime.utcnow().isoformat()
         })
         return func.HttpResponse(

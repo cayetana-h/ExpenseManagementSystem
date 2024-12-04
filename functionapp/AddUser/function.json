@@ -1,5 +1,5 @@
 {
-    "scriptFile": "__init__.py",
+    "scriptFile": "_init_.py",
     "bindings": [
       {
         "authLevel": "Function",
@@ -7,7 +7,7 @@
         "direction": "in",
         "name": "req",
         "methods": [
-          "get"
+          "post"
         ]
       },
       {

@@ -19,24 +19,46 @@ headers = {
     "Access-Control-Allow-Origin": "*"
 }
 
+def get_user_id(username):
+    """
+    Retrieve the userId for a given username.
+    """
+    try:
+        connection = pymysql.connect(**db_config)
+        cursor = connection.cursor()
+        
+        cursor.execute("SELECT id FROM Users WHERE username = %s", (username,))
+        result = cursor.fetchone()
+        
+        if result:
+            return result[0]
+        else:
+            return None
+
+    except pymysql.MySQLError as db_error:
+        logging.error(f"MySQL error while retrieving userId: {str(db_error)}")
+        raise db_error
+
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection:
+            connection.close()
+
 def delete_budget(user_id, category_id):
     '''
     Delete a budget for the specified user and category.
     '''
     try:
-        # Establish the database connection
         connection = pymysql.connect(**db_config)
         cursor = connection.cursor()
 
-        # Delete the budget
         query = "DELETE FROM Budgets WHERE userId = %s AND categoryId = %s"
         params = (user_id, category_id)
         cursor.execute(query, params)
 
-        # Commit the transaction
         connection.commit()
 
-        # Check if a row was affected
         if cursor.rowcount > 0:
             logging.info(f"Budget deleted successfully for User ID {user_id}, Category ID {category_id}")
             return True
@@ -45,7 +67,6 @@ def delete_budget(user_id, category_id):
             return False
 
     except pymysql.MySQLError as db_error:
-        # Log error to Dead Letter Queue
         logging.error(f"MySQL error: {str(db_error)}")
         send_to_dead_letter_queue({
             "error": str(db_error),
@@ -55,7 +76,6 @@ def delete_budget(user_id, category_id):
         raise db_error
 
     finally:
-        # Close the database connection
         if 'cursor' in locals() and cursor:
             cursor.close()
         if 'connection' in locals() and connection:
@@ -68,16 +88,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
     # Extract parameters from the query string
-    user_id = req.params.get('userId')
+    username = req.params.get('username')
     category_id = req.params.get('categoryId')
 
     # Validate input data
-    if not all([user_id, category_id]):
-        error_message = "Missing required fields: userId, categoryId"
+    if not all([username, category_id]):
+        error_message = "Missing required fields: username, categoryId"
         logging.error(error_message)
         send_to_dead_letter_queue({
             "error": error_message,
-            "parameters": {"userId": user_id, "categoryId": category_id},
+            "parameters": {"username": username, "categoryId": category_id},
             "timestamp": datetime.datetime.utcnow().isoformat()
         })
         return func.HttpResponse(
@@ -87,6 +107,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     try:
+        # Get userId from username
+        user_id = get_user_id(username)
+        if not user_id:
+            error_message = f"Username '{username}' not found."
+            logging.error(error_message)
+            send_to_dead_letter_queue({
+                "error": error_message,
+                "parameters": {"username": username},
+                "timestamp": datetime.datetime.utcnow().isoformat()
+            })
+            return func.HttpResponse(
+                json.dumps({"error": error_message}),
+                status_code=404,
+                headers=headers
+            )
+
         # Call the function to delete the budget
         success = delete_budget(user_id, category_id)
         if success:
@@ -103,10 +139,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             )
 
     except Exception as e:
-        # Log unexpected errors to the Dead Letter Queue
         send_to_dead_letter_queue({
             "error": str(e),
-            "parameters": {"userId": user_id, "categoryId": category_id},
+            "parameters": {"username": username, "categoryId": category_id},
             "timestamp": datetime.datetime.utcnow().isoformat()
         })
         return func.HttpResponse(
