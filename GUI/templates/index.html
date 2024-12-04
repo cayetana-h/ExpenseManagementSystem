@@ -435,35 +435,44 @@
                 }
             });
         });
-        // Handle "Edit Expense"
-        $('#expensesTable').on('click', '.edit-expense', function () {
-            var data = table.row($(this).parents('tr')).data();
-            $('#editExpenseModal #id').val(data.id);
-            $('#editExpenseModal #amount').val(data.amount);
-            $('#editExpenseModal #date').val(data.date);
-            $('#editExpenseModal #description').val(data.description);
-            $('#editExpenseModal #categoryId').val(data.categoryId);
-            $('#editExpenseModal').modal('show');
-        });
+        $(document).ready(function () {
+    // Handle "Edit Expense" button click to populate the modal with data
+    $('#expensesTable').on('click', '.edit-expense', function () {
+        const rowData = $('#expensesTable').DataTable().row($(this).parents('tr')).data();
 
-        // Handle form submission for editing an expense
+        // Populate the modal fields with the expense data
+        $('#editExpenseModal #id').val(rowData.id);
+        $('#editExpenseModal #amount').val(rowData.amount);
+        $('#editExpenseModal #date').val(rowData.date);
+        $('#editExpenseModal #description').val(rowData.description);
+        $('#editExpenseModal #categoryId').val(rowData.categoryId);
+
+        // Show the modal
+        $('#editExpenseModal').modal('show');
+    });
+
+        // Handle "Edit Expense" form submission via AJAX
         $('#editExpenseForm').on('submit', function (e) {
-            e.preventDefault();
-            const formData = $(this).serialize();
+            e.preventDefault(); // Prevent the default form submission
+
+            const formData = $(this).serialize(); // Serialize the form data
+
             $.ajax({
-                url: '/edit_expense',
-                method: 'PUT',
+                url: '/edit_expense', // Endpoint for editing expenses
+                method: 'POST', // Use POST to send the data
                 data: formData,
                 success: function (response) {
-                    alert(response.message);
-                    $('#editExpenseModal').modal('hide');
-                    updateExpensesTable();
+                    alert(response.message); // Show a success message
+                    $('#editExpenseModal').modal('hide'); // Hide the modal
+                    updateExpensesTable(); // Refresh the expenses table
                 },
                 error: function (xhr) {
-                    alert('Error: ' + (xhr.responseJSON?.error || xhr.statusText));
+                    const error = xhr.responseJSON?.error || xhr.statusText;
+                    alert(`Error editing expense: ${error}`); // Show an error message
                 }
             });
         });
+    });
 
         $('#deleteBudgetForm').on('submit', function (e) {
         e.preventDefault(); // Prevent the default form submission behavior
