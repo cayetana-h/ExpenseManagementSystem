@@ -28,7 +28,6 @@ FUNCTION_KEYS = {
     'AddUser': os.getenv('ADD_USER_KEY'),
     'GetUser': os.getenv('GET_USER_KEY'),
     'AddReceipt':os.getenv('ADD_RECEIPT_KEY'),
-    'DeleteReceipt':os.getenv('DELETE_RECEIPT_KEY'),
     'ViewReceipt':os.getenv('VIEW_RECEIPT_KEY')
 }
 
@@ -307,7 +306,7 @@ def add_receipt():
             if result:
                 return jsonify({'message': 'Receipt uploaded successfully'}), 200
             else:
-                return jsonify({'error': 'Failed to upload receipt to Azure Function'}), 500
+                return jsonify({'error': 'Failed to upload receipt'}), 500
 
         except Exception as func_error:
             app.logger.error(f"Azure Function call error: {func_error}")
@@ -317,67 +316,22 @@ def add_receipt():
         app.logger.error(f"Error in /add_receipt: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
     
-
-@app.route('/delete_receipt', methods=['POST'])
-def delete_receipt():
-    try:
-        # Parse the incoming JSON request
-        req_body = request.get_json()
-        logging.info(f"Received request body: {req_body}")  # Log the incoming request body
-
-        expense_id = request.form.get('expenseId')  # Extract expenseId
-
-        # Validate the input
-        if not expense_id:
-            logging.error("Expense ID is missing in the request.")
-            return jsonify({"error": "Expense ID is required."}), 400
-
-        # Call Azure function
-        response = azure_function_request(
-            function_name='DeleteReceipt',
-            method='DELETE',
-            json={"expenseId": expense_id}
-        )
-
-        if not response or "error" in response:
-            logging.error(f"Azure function error: {response.get('error', 'No response from function')}")
-            return jsonify({"error": response.get("error", "Failed to delete receipt.")}), 500
-
-        return jsonify({"message": "Receipt deleted successfully!"}), 200
-
-    except Exception as e:
-        logging.error(f"Error deleting receipt: {str(e)}")
-        return jsonify({"error": "Failed to delete receipt."}), 500
-    
-
-@app.route('/view_receipt', methods=['POST'])
+@app.route('/view_receipt', methods=['GET'])
 def view_receipt():
-    try:
-        # Parse JSON payload
-        req_body = request.get_json()
-        expense_id = req_body.get("expenseId")
+    expense_id = request.args.get("expenseId")
+    if not expense_id:
+        return jsonify({"error": "Expense ID is required."}), 400
 
-        # Validate input
-        if not expense_id:
-            return jsonify({"error": "Expense ID is required."}), 400
+    # Use the helper function to call the Azure Function
+    response = azure_function_request('ViewReceipt', method='GET', params={"expenseId": expense_id})
 
-        # Call Azure Function to fetch receipt
-        response = azure_function_request(
-            function_name='ViewReceipt',
-            method='POST',
-            json={"expenseId": expense_id}
-        )
-
-        if not response or "error" in response:
-            return jsonify({"error": response.get("error", "Failed to retrieve receipt.")}), 500
-
-        return jsonify(response), 200
-
-    except Exception as e:
-        logging.error(f"Error viewing receipt: {str(e)}")
-        return jsonify({"error": "Internal Server Error"}), 500
-    
-
+    if response and "fileUrl" in response:
+        # Return the file URL
+        return jsonify({"fileUrl": response["fileUrl"]}), 200
+    else:
+        # Handle errors from the Azure Function
+        error_message = response.get("error", "Failed to view receipt.") if response else "no receipt added"
+        return jsonify({"error": error_message}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
