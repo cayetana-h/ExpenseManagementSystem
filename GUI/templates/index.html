@@ -64,53 +64,48 @@
 
     <!-- Main Content -->
     <div class="container mt-5">
-        <!-- Budget Management Section -->
-        <div class="mb-5">
-            <h2 class="mb-4">Budgets</h2>
-            <div class="row">
-                <div class="col-md-3 mb-4">
-                    <div class="budget-card">
-                        <h4><i class="fas fa-utensils me-2"></i>Food</h4>
-                        <p class="budget-amount" id="food-budget">$0</p>
-                        <p class="remaining-budget text-success fw-bold" id="food-remaining">Remaining: $0</p>
-                        <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="1" data-category-name="Food">Set Budget</button>
-                        <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="1" data-category-name="Food">Update Budget</button>
-                        <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="1" data-category-name="Food">Delete Budget</button>
+                <!-- Budget Management Section -->
+                <div class="mb-5">
+                    <h2 class="mb-4">Budgets</h2>
+                    <div class="row">
+                        <div class="col-md-3 mb-4">
+                            <div class="budget-card">
+                                <h4><i class="fas fa-utensils me-2"></i>Food</h4>
+                                <p class="budget-amount" id="food-budget">$0</p>
+                                <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="1" data-category-name="Food">Set Budget</button>
+                                <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="1" data-category-name="Food">Update Budget</button>
+                                <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="1" data-category-name="Food">Delete Budget</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="budget-card">
+                                <h4><i class="fas fa-bus me-2"></i>Transport</h4>
+                                <p class="budget-amount" id="transport-budget">$0</p>
+                                <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="2" data-category-name="Transport">Set Budget</button>
+                                <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="2" data-category-name="Transport">Update Budget</button>
+                                <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="2" data-category-name="Transport">Delete Budget</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="budget-card">
+                                <h4><i class="fas fa-film me-2"></i>Entertainment</h4>
+                                <p class="budget-amount" id="entertainment-budget">$0</p>
+                                <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="3" data-category-name="Entertainment">Set Budget</button>
+                                <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="3" data-category-name="Entertainment">Update Budget</button>
+                                <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="3" data-category-name="Entertainment">Delete Budget</button>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="budget-card">
+                                <h4><i class="fas fa-ellipsis-h me-2"></i>Other</h4>
+                                <p class="budget-amount" id="other-budget">$0</p>
+                                <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="4" data-category-name="Other">Set Budget</button>
+                                <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="4" data-category-name="Other">Update Budget</button>
+                                <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="4" data-category-name="Other">Delete Budget</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-4">
-                    <div class="budget-card">
-                        <h4><i class="fas fa-bus me-2"></i>Transport</h4>
-                        <p class="budget-amount" id="transport-budget">$0</p>
-                        <p class="remaining-budget text-success fw-bold" id="transport-remaining">Remaining: $0</p>
-                        <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="2" data-category-name="Transport">Set Budget</button>
-                        <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="2" data-category-name="Transport">Update Budget</button>
-                        <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="2" data-category-name="Transport">Delete Budget</button>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <div class="budget-card">
-                        <h4><i class="fas fa-film me-2"></i>Entertainment</h4>
-                        <p class="budget-amount" id="entertainment-budget">$0</p>
-                        <p class="remaining-budget text-success fw-bold" id="entertainment-remaining">Remaining: $0</p>
-                        <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="3" data-category-name="Entertainment">Set Budget</button>
-                        <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="3" data-category-name="Entertainment">Update Budget</button>
-                        <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="3" data-category-name="Entertainment">Delete Budget</button>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-4">
-                    <div class="budget-card">
-                        <h4><i class="fas fa-ellipsis-h me-2"></i>Other</h4>
-                        <p class="budget-amount" id="other-budget">$0</p>
-                        <p class="remaining-budget text-success fw-bold" id="other-remaining">Remaining: $0</p>
-                        <button class="btn btn-primary btn-sm btn-custom mb-2 set-budget" data-bs-toggle="modal" data-bs-target="#setBudgetModal" data-category="4" data-category-name="Other">Set Budget</button>
-                        <button class="btn btn-warning btn-sm btn-custom mb-2 update-budget" data-bs-toggle="modal" data-bs-target="#updateBudgetModal" data-category="4" data-category-name="Other">Update Budget</button>
-                        <button class="btn btn-danger btn-sm btn-custom delete-budget" data-bs-toggle="modal" data-bs-target="#deleteBudgetModal" data-category="4" data-category-name="Other">Delete Budget</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
        
 
         <div class="mb-4 p-3 border rounded bg-white shadow-sm">
